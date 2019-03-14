@@ -853,7 +853,7 @@ namespace ProjectManager
             int h = project.MovieOptions.Height;
             if (path.StartsWithOrdinal(project.Directory)) 
                 path = project.FixDebugReleasePath(path);
-
+            
             if (project.TestMovieBehavior == TestMovieBehavior.NewTab)
             {
                 de = new DataEvent(EventType.Command, "FlashViewer.Document", path);
@@ -894,13 +894,14 @@ namespace ProjectManager
             }
             else if (project.TestMovieBehavior == TestMovieBehavior.Webserver)
             {
-                if (project.TraceEnabled && project.EnableInteractiveDebugger)
+                if (project.TraceEnabled && project.EnableInteractiveDebugger && (!Directory.Exists(Path.Combine(project.CurrentSDK, "js")) || (!String.IsNullOrEmpty(project.TargetBuild) && project.TargetBuild.ToLower() == "swf")))
                 {
                     de = new DataEvent(EventType.Command, "AS3Context.StartProfiler", null);
                     EventManager.DispatchEvent(this, de);
                     de = new DataEvent(EventType.Command, "AS3Context.StartDebugger", null);
                     EventManager.DispatchEvent(this, de);
                 }
+                
                 string doc = project.TestMovieCommand;
                 try
                 {
@@ -1089,6 +1090,7 @@ namespace ProjectManager
         private void TestMovie()
         {
             Project project = activeProject; // TODO we need a runnable project
+            project.UpdateVars(true);
             bool noTrace = pluginUI.IsTraceDisabled;
             DataEvent de = new DataEvent(EventType.Command, ProjectManagerEvents.TestProject, (noTrace) ? "Release" : "Debug");
             EventManager.DispatchEvent(this, de);
@@ -1108,7 +1110,7 @@ namespace ProjectManager
         private void BuildProject() 
         {
             Project project = activeProject; // TODO build all projects
-
+            project.UpdateVars(true);
             bool noTrace = pluginUI.IsTraceDisabled;
             DataEvent de = new DataEvent(EventType.Command, ProjectManagerEvents.BuildProject, (noTrace) ? "Release" : "Debug");
             EventManager.DispatchEvent(this, de);

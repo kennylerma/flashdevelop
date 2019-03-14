@@ -9,18 +9,18 @@ using ProjectManager.Projects.AS3;
 
 namespace FDBuild.Building.AS3
 {
-    class FlexJSProjectBuilder : ProjectBuilder
+    class RoyaleProjectBuilder : ProjectBuilder
     {
         readonly AS3Project project;
         readonly string mxmlcPath;
         readonly Dictionary<string, string> jvmConfig;
         readonly string jvmArgs;
 
-        public FlexJSProjectBuilder(AS3Project project, string compilerPath) : base(project, compilerPath)
+        public RoyaleProjectBuilder(AS3Project project, string compilerPath) : base(project, compilerPath)
         {
             this.project = project;
             mxmlcPath = Path.Combine(compilerPath, "js", "lib", "mxmlc.jar");
-            if (!File.Exists(mxmlcPath)) throw new Exception("Could not locate js\\lib\\mxmlc.jar in FlexJS SDK.");
+            if (!File.Exists(mxmlcPath)) throw new Exception("Could not locate js\\lib\\mxmlc.jar in Royale SDK.");
             jvmConfig = JvmConfigHelper.ReadConfig(compilerPath);
             if (jvmConfig.ContainsKey("java.args"))
             {
@@ -73,31 +73,79 @@ namespace FDBuild.Building.AS3
                 mxmlc.AddOutput(tempFile);
                 var mxmlcArgs = mxmlc.ToString();
                 Console.WriteLine("mxmlc " + mxmlcArgs);
-                CompileWithMxmlc(mxmlcArgs);
 
-                // if we get here, the build was successful
-                var output = project.FixDebugReleasePath(project.OutputPathAbsolute);
-                var outputDir = Path.GetDirectoryName(output);
-                if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
-                File.Copy(tempFile, output, true);
+                if (Path.GetExtension(project.CompileTargets.First()) == ".as" && String.IsNullOrEmpty(project.TargetBuild))
+                {
+                    // clean royale project first by deleting js-debug and js-release folders
+                    try
+                    {
+                        if (Directory.Exists(project.GetAbsolutePath("bin\\js-debug")))
+                            Directory.Delete(project.GetAbsolutePath("bin\\js-debug"), true);
+
+                        if (Directory.Exists(project.GetAbsolutePath("bin\\js-release")))
+                            Directory.Delete(project.GetAbsolutePath("bin\\js-release"), true);
+
+                        Console.WriteLine("Project Cleaned.");
+                    }catch { }
+
+                    CompileAStoJS(mxmlcArgs);
+                }
+                else if (Path.GetExtension(project.CompileTargets.First()) == ".mxml" && String.IsNullOrEmpty(project.TargetBuild))
+                {
+                    throw new Exception("Royale Flex (mxml) Javascript target not implemented yet.");
+                }
+                else if (!String.IsNullOrEmpty(project.TargetBuild) && project.TargetBuild.ToLower() == "swf")
+                {
+                    CompileSWF(mxmlcArgs);
+                    // if we get here, the build was successful
+                    var output = project.FixDebugReleasePath(project.OutputPathAbsolute);
+                    var outputDir = Path.GetDirectoryName(output);
+                    if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+                    File.Copy(tempFile, output, true);
+                }
+                else
+                {
+                    throw new Exception("Royale Build Target '" + project.TargetBuild + "' is Unknown");
+                }
             }
             finally { if (tempFile != null && File.Exists(tempFile)) File.Delete(tempFile); }
         }
 
-        void CompileWithMxmlc(string mxmlcArgs)
+        void CompileSWF(string mxmlcArgs)
         {
             var javaExe = JvmConfigHelper.GetJavaEXE(jvmConfig, CompilerPath);
             Console.WriteLine("Running java as: " + javaExe);
             var frameworks = Path.Combine(CompilerPath, "frameworks");
             var args = $"-Dflexcompiler=\"{CompilerPath}\" -Dflexlib=\"{frameworks}\" {jvmArgs} -jar \"{mxmlcPath}\"";
-            args += " -js-output-type=FLEXJS";
-            args += " -sdk-js-lib=\"" + Path.Combine(frameworks, "js", "FlexJS", "generated-sources") + "\" ";
+            args += " -js-output-type=RoyaleJS";
+            args += " -sdk-js-lib=\"" + Path.Combine(frameworks, "js", "RoyaleJS", "generated-sources") + "\" ";
             var index = mxmlcArgs.LastIndexOf("-o ");
             if (index != -1) mxmlcArgs = mxmlcArgs.Remove(index);
             args += mxmlcArgs;
             args += " -targets=SWF";
             args += " " + project.CompileTargets.First();
             args += " -output=" + project.OutputPath;
+
+            if (!ProcessRunner.Run(javaExe, args, false, false)) throw new BuildException("Build halted with errors (mxmlc).");
+        }
+
+        void CompileAStoJS(string mxmlcArgs)
+        {
+            Console.WriteLine("Test Command: " + project.TestMovieCommand);
+
+            var javaExe = JvmConfigHelper.GetJavaEXE(jvmConfig, CompilerPath);
+            Console.WriteLine("Running java as: " + javaExe);
+            var frameworks = Path.Combine(CompilerPath, "frameworks");
+            var args = $"-Droyalecompiler=\"{CompilerPath}\" -Droyalelib=\"{frameworks}\" {jvmArgs} -jar \"{mxmlcPath}\"";
+            if (mxmlcArgs.IndexOf("-debug") == -1) args += " -js-compiler-option+=\"'--compilation_level WHITESPACE_ONLY'\"";
+            args += " -js-output-type=jsc +configname=js";
+            args += " -js-output-optimization=skipAsCoercions";
+            args += " -sdk-js-lib=\"" + Path.Combine(frameworks, "js", "RoyaleJS", "generated-sources") + "\" ";
+            var index = mxmlcArgs.LastIndexOf("-o ");
+            if (index != -1) mxmlcArgs = mxmlcArgs.Remove(index);
+            args += mxmlcArgs;
+            args += " -define+=CONFIG::FLASH_AUTHORING,false";
+
             if (!ProcessRunner.Run(javaExe, args, false, false)) throw new BuildException("Build halted with errors (mxmlc).");
         }
     }
