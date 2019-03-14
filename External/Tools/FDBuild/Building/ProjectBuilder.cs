@@ -37,7 +37,7 @@ namespace ProjectManager.Building
                 return new AS2ProjectBuilder(project as AS2Project, compilerPath);
             else if (project is AS3Project)
             {
-                if (Directory.Exists(Path.Combine(compilerPath, "js"))) return new FlexJSProjectBuilder((AS3Project) project, compilerPath);
+                if (Directory.Exists(Path.Combine(compilerPath, "js"))) return new RoyaleProjectBuilder((AS3Project) project, compilerPath);
                 return new AS3ProjectBuilder(project as AS3Project, compilerPath, ipcName);
             }
             else if (project is HaxeProject)

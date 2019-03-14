@@ -253,6 +253,12 @@ namespace AS3Context
                     }
                 addLocales.Add("playerglobal_rb.swc");
 
+                // Royale SWCs
+                if (Directory.Exists(Path.Combine(compiler, "js")))
+                {
+                    addLibs.Add(Path.Combine(compiler, "js\\libs\\js.swc"));
+                }
+
                 // framework SWCs
                 string as3Fmk = PathHelper.ResolvePath("Library" + S + "AS3" + S + "frameworks");
 
@@ -263,7 +269,7 @@ namespace AS3Context
                 // Flex framework
                 if (cpCheck.IndexOf("Library/AS3/frameworks/Flex", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    bool isFlexJS = cpCheck.IndexOf("Library/AS3/frameworks/FlexJS", StringComparison.OrdinalIgnoreCase) >= 0;
+                    bool isFlexJS = cpCheck.IndexOf("Library/AS3/frameworks/FlexJS", StringComparison.OrdinalIgnoreCase) >= 0; 
 
                     if (!isFlexJS)
                     {
